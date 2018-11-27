@@ -28,14 +28,42 @@ exports.create = ( req, res ) => {
 
 // Retrieve and return all notes from the database.
 exports.findAll = ( req, res ) => {
-	Note.find()
-		.then( notes => {
-			res.send( { notes: notes } );
-		} ).catch( err => {
-		res.status( 500 ).send( {
-			message: err.message || "Some error occurred while retrieving notes."
+	const pageNumber = parseInt( req.query.pageNumber );
+	const size = parseInt( req.query.size );
+	const query = {};
+
+	if ( isNaN( pageNumber ) || isNaN( size ) ) {
+		return res.status( 404 ).send( {
+			message: "You must to define pageNumber && size"
 		} );
-	} );
+	}
+
+	if ( pageNumber < 0 || pageNumber === 0 ) {
+		return res.status( 404 ).send( {
+			message: "invalid page number, should start with 1"
+		} );
+	}
+
+	query.skip = size * (pageNumber - 1);
+	query.limit = size;
+
+	Note.countDocuments({},function(err,totalCount) {
+		if(err) {
+			return res.status( 404 ).send( {
+				message: "Error fetching data"
+			} );
+		}
+		Note.find({},{},query)
+			.then( notes => {
+				const totalPages = Math.ceil(totalCount / size);
+				res.send( { notes: notes, totalPages } );
+			} ).catch( err => {
+			res.status( 500 ).send( {
+				message: err.message || "Some error occurred while retrieving notes."
+			} );
+		} );
+	})
+
 };
 
 // Find a single note with a noteId
